@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
+from langchain_community.document_loaders.csv_loader import CSVLoader
 from langchain_community.graphs.graph_document import Node, Relationship
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_neo4j import Neo4jGraph
@@ -11,6 +12,8 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 load_dotenv()
 
 DOCS_PATH = "llm-knowledge-graph/data/course/pdfs"
+DATA_PATH = "llm-knowledge-graph/data/course/csvs"
+
 
 llm = ChatOpenAI(
     openai_api_key=os.getenv('OPENAI_API_KEY'), 
@@ -30,12 +33,47 @@ graph = Neo4jGraph(
 
 doc_transformer = LLMGraphTransformer(
     llm=llm,
-    allowed_nodes=["Customer", "Product", "Price", "Sale"],
+    allowed_nodes = [
+    # Nodes from the SQL schema subset
+    "Claim",
+    "Claim_Amount",
+    "Loss_Payment",
+    "Loss_Reserve",
+    "Expense_Payment",
+    "Expense_Reserve",
+    "Claim_Coverage",
+    "Policy_Coverage_Detail",
+    "Policy",
+    "Policy_Amount",
+    "Agreement_Party_Role",
+    "Premium",
+    "Catastrophe",
+    
+    # Nodes from the ontology
+    "in:Claim",
+    "in:PolicyCoverageDetail",
+    "in:Policy",
+    "in:Catastrophe",
+    "in:ExpensePayment",
+    "in:ExpenseReserve",
+    "in:LossPayment",
+    "in:LossReserve"
+],
+allowed_relationships = [
+    "in:against",          # Links a Claim to a PolicyCoverageDetail
+    "in:hasCatastrophe",   # Links a Claim to a Catastrophe
+    "in:hasExpensePayment",# Links a Claim to an ExpensePayment
+    "in:hasExpenseReserve",# Links a Claim to an ExpenseReserve
+    "in:hasLossPayment",   # Links a Claim to a LossPayment
+    "in:hasLossReserve",   # Links a Claim to a LossReserve
+    "in:hasPolicy"         # Links a PolicyCoverageDetail to a Policy
+]
     )
 
 # Load and split the documents
-loader = DirectoryLoader(DOCS_PATH, glob="**/*.pdf", loader_cls=PyPDFLoader)# TODO: chagne this to csv if you want to load csv # 
-# You can find more information in the LangChain Document loaders how-to guide. https://python.langchain.com/v0.2/docs/how_to/#document-loaders
+
+# Load all CSV files from the directory
+loader = DirectoryLoader(DATA_PATH, glob="**/*.csv", loader_cls=CSVLoader)
 
 text_splitter = CharacterTextSplitter(
     separator="\n\n",
